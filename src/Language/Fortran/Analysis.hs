@@ -11,7 +11,7 @@ module Language.Fortran.Analysis
   , lhsExprs, isLExpr, allVars, analyseAllLhsVars, analyseAllLhsVars1, allLhsVars
   , blockVarUses, blockVarDefs
   , BB, BBNode, BBGr(..), bbgrMap, bbgrMapM, bbgrEmpty
-  , TransFunc, TransFuncM )
+  , TransFunc, TransFuncM, Kind )
 where
 
 import Prelude hiding (exp)
@@ -96,9 +96,11 @@ data ConstructType =
 instance Out ConstructType
 instance Binary ConstructType
 
+type Kind = Int
 data IDType = IDType
   { idVType :: Maybe BaseType
-  , idCType :: Maybe ConstructType }
+  , idCType :: Maybe ConstructType
+  , idKind  :: Maybe Kind }
   deriving (Ord, Eq, Show, Data, Typeable, Generic)
 
 instance Out IDType

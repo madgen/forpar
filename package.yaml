@@ -71,6 +71,7 @@ library:
   - Language.Fortran.Transformation.Grouping
   - Language.Fortran.Transformation.TransformMonad
   - Language.Fortran.Transformer
+  - Language.Fortran.Util
   - Language.Fortran.Util.Position
   - Language.Fortran.Util.FirstParameter
   - Language.Fortran.Util.SecondParameter

@@ -40,6 +40,7 @@ import Language.Fortran.AST
 import Language.Fortran.Analysis.Types
 import Language.Fortran.Analysis.ModGraph
 import Language.Fortran.Analysis.BBlocks
+import Language.Fortran.Analysis.Pretty
 import Language.Fortran.Analysis.DataFlow
 import Language.Fortran.Analysis.Renaming
 import Data.Graph.Inductive hiding (trc, mf, version)

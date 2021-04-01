@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 50aa4fb72aab53b1e5d449fa390ff3290fb26bd9bf9297a7cac174a79ef92b3f
+-- hash: da7c2aeaf0cb110d9e5280adbebf4d27d1c0c8525003d5935d09c0f0b59edb49
 
 name:           fortran-src
 version:        0.4.2
@@ -54,6 +54,7 @@ library
       Language.Fortran.Transformation.Grouping
       Language.Fortran.Transformation.TransformMonad
       Language.Fortran.Transformer
+      Language.Fortran.Util
       Language.Fortran.Util.Position
       Language.Fortran.Util.FirstParameter
       Language.Fortran.Util.SecondParameter

@@ -32,8 +32,10 @@ import Control.Arrow ((&&&))
 import Text.PrettyPrint.GenericPretty (Out)
 import Language.Fortran.Parser.Utils
 import Language.Fortran.Analysis
-import Language.Fortran.Analysis.BBlocks (showBlock, ASTBlockNode, ASTExprNode)
+import Language.Fortran.Analysis.BBlocks (ASTBlockNode, ASTExprNode)
+import Language.Fortran.Analysis.Pretty  (showBlock)
 import Language.Fortran.AST
+import Language.Fortran.Util (fromJustMsg)
 import qualified Data.Map as M
 import qualified Data.IntMap.Lazy as IM
 import qualified Data.IntMap.Strict as IMS
@@ -336,6 +338,7 @@ genVarFlowsToMap dm fg = M.fromListWith S.union [ (conv u, sconv v) | (u, v) <- 
     revDM = IM.fromListWith (curry fst) [ (i, v) | (v, is) <- M.toList dm, i <- IS.toList is ]
 
 --------------------------------------------------
+-- * Constant folding
 
 -- Integer arithmetic can be compile-time evaluated if we guard
 -- against overflow, divide-by-zero. We must interpret the various
@@ -480,6 +483,9 @@ sccWith :: (Graph gr) => Node -> gr a b -> [Node]
 sccWith n g = case filter (n `elem`) $ scc g of
   []  -> []
   c:_ -> c
+
+--------------------------------------------------
+-- * Induction variable/expression analysis
 
 -- | Map of loop header nodes to the induction variables within that loop.
 type InductionVarMap = BBNodeMap (S.Set Name)
@@ -768,10 +774,6 @@ converge p (x:ys@(y:_))
   | otherwise = converge p ys
 converge _ [] = error "converge: empty list"
 converge _ [_] = error "converge: finite list"
-
-fromJustMsg :: String -> Maybe a -> a
-fromJustMsg _ (Just x) = x
-fromJustMsg msg _      = error msg
 
 -- Local variables:
 -- mode: haskell

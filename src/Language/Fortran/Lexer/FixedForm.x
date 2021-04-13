@@ -921,6 +921,8 @@ alexGetByte ai
   | _bytes /= [] = Just (head _bytes, ai { aiBytes = tail _bytes })
   -- When all characters are already read
   | posAbsoluteOffset _position == aiEndOffset ai = Nothing
+  -- TODO
+  | _curChar == '\r' = skip Char ai
   -- Skip the continuation line altogether
   | isContinuation ai && _isWhiteInsensitive = skip Continuation ai
   -- Skip the newline before a comment
@@ -985,8 +987,18 @@ isNewlineComment ai =
     _next1 = takeNChars 1 ai
     p = (aiPosition ai) { posAbsoluteOffset = posAbsoluteOffset (aiPosition ai) + 1 }
 
+-- TODO
+isDOSNewlineComment :: AlexInput -> Bool
+isDOSNewlineComment ai =
+  _next2 == "\r\n" && isCommentLine ai p
+  where
+    _next2 = takeNChars 2 ai
+    p = (aiPosition ai) { posAbsoluteOffset = posAbsoluteOffset (aiPosition ai) + 2 }
+
 isNewlineCommentsFollowedByContinuation :: AlexInput -> Bool
 isNewlineCommentsFollowedByContinuation ai
+  -- TODO
+  -- | isNewlineComment ai || isDOSNewlineComment ai
   | isNewlineComment ai
   = isNewlineCommentsFollowedByContinuation (ai { aiPosition = advance NewlineComment ai })
   | isContinuation ai = True

@@ -128,6 +128,8 @@ import Language.Fortran.Util.FirstParameter
 import Language.Fortran.Util.SecondParameter
 import Language.Fortran.AST.AList
 
+import Data.Generics.Uniplate.Direct
+
 -- | The empty annotation.
 type A0 = ()
 
@@ -572,7 +574,7 @@ data Expression a =
   | ExpBinary        a SrcSpan BinaryOp (Expression a) (Expression a)
   -- ^ A binary operator applied to two expressions.
   | ExpUnary         a SrcSpan UnaryOp (Expression a)
-  -- ^ A unary operator applied to two expressions.
+  -- ^ A unary operator applied to one expression.
   | ExpSubscript     a SrcSpan (Expression a) (AList Index a)
   -- ^ Array indexing
   | ExpDataRef       a SrcSpan (Expression a) (Expression a)
@@ -1049,3 +1051,116 @@ instance NFData BinaryOp
 instance NFData Only
 instance NFData ModuleNature
 instance NFData Intent
+
+--------------------------------------------------------------------------------
+
+
+{-
+type Type from to = (Str to, Str to -> from)
+
+-- | The field to the right contains a @Maybe [a]@ of the target.
+{-# INLINE[1] (|+*) #-}
+(|+*) :: Type (Maybe [to] -> from) to -> Maybe [to] -> Type from to
+(|+*) (xs, x_) Nothing  = (xs,\xs -> x_ xs [])
+(|+*) (xs, x_) (Just y) = (||*) (xs, x_) y
+-}
+
+-- TODO: Determine what Biplate instances I want for each node type. Block and
+-- Statement might be tricky (touches lots of the AST), others should be easier.
+
+-- TODO: Lies I have made:
+--   * General: Expressions can contain Statements: Expression has ExpImpliedDo
+--     has DoSpecification has Statement. Is this OK?
+--   * General: Statements can contain Blocks: Statement has StInclude has
+--     [Block]. Awkward-feeling mutual recursion.
+--   * Uniplate PU: PU has Block has BlInterface has [PU].
+--   * Uniplate Block: Block has BlStatement has Statement has StInclude has
+--     [Block]. *However*, this is only for includes, which we could possibly
+--     handle in a less mutually recursive manner.
+--   * Uniplate Statement: Statement has StDeclaration has TypeSpec has Selector
+--     has Expression has ExpImpliedDo has DoSpecification has Statement. It's
+--     bullshit but it's there.
+--   * Uniplate Expression: Expression has ExpValue has Value has ValComplex has
+--     Expression. But these Expressions are certainly limited in some way.
+
+instance {-# OVERLAPS #-} Uniplate (ProgramFile a) where
+  uniplate = plate
+
+instance {-# OVERLAPS #-} Biplate (ProgramFile a) (ProgramFile a) where
+  biplate = plateSelf
+
+instance {-# OVERLAPS #-} Data a => Uniplate (ProgramUnit a) where
+  uniplate (PUMain anno ss mName blk     mPUs) =
+     plate (PUMain anno ss mName blk) |+ mPUs
+  uniplate (PUModule anno ss name blk     mPUs) =
+     plate (PUModule anno ss name blk) |+ mPUs
+  uniplate (PUSubroutine anno pfxSfx ss name mArgs blk     mPUs) =
+     plate (PUSubroutine anno pfxSfx ss name mArgs blk) |+ mPUs
+  uniplate (PUFunction anno ss mTSpec pfxSfx name mArgs mRes blk     mPUs) =
+     plate (PUFunction anno ss mTSpec pfxSfx name mArgs mRes blk) |+ mPUs
+  uniplate x@PUBlockData{} = plate x
+  uniplate x@PUComment{}   = plate x
+
+instance {-# OVERLAPS #-} Data a => Biplate (ProgramUnit a) (ProgramUnit a) where
+  biplate = plateSelf
+
+instance {-# OVERLAPS #-} Data a => Uniplate (Block a) where
+  uniplate x@BlStatement{} = plate x
+  uniplate (BlForall anno ss mLabel mName fahead      body    mEndLabel) =
+     plate (BlForall anno ss mLabel mName fahead) ||* body |- mEndLabel
+  uniplate (BlIf anno ss mLabel mName conds     bodys    mEndLabel) =
+     --plate (BlIf anno ss mLabel mName conds) |||* bodys |- mEndLabel
+     plate (BlIf anno ss mLabel mName conds) |+ bodys |- mEndLabel
+  uniplate (BlCase anno ss mLabel mName scrutinee ranges     bodys    mEndLabel) =
+     --plate (BlCase anno ss mLabel mName scrutinee ranges) |||* bodys |- mEndLabel
+     plate (BlCase anno ss mLabel mName scrutinee ranges) |+ bodys |- mEndLabel
+  -- TODO particularly nasty: DoSpecification has a Stmt, which could be StInclude...
+  uniplate (BlDo anno ss mLabel mName mTLabel dospec      body    mEndLabel) =
+     plate (BlDo anno ss mLabel mName mTLabel dospec) ||* body |- mEndLabel
+  uniplate (BlDoWhile anno ss mLabel mName mTLabel cond      body    mEndLabel) =
+     plate (BlDoWhile anno ss mLabel mName mTLabel cond) ||* body |- mEndLabel
+  -- TODO lying, we have a [PU] here urgh
+  uniplate (BlInterface anno ss mLabel x pus     body) =
+     plate (BlInterface anno ss mLabel x pus) ||* body
+  uniplate x@BlComment{} = plate x
+
+instance {-# OVERLAPS #-} Data a => Biplate (Block a) (Block a) where
+  biplate = plateSelf
+
+instance {-# OVERLAPS #-} Data a => Uniplate (Statement a) where
+  -- TODO ignoring StInclude which has [Block]
+  uniplate (StIfLogical anno ss expr     stmt) =
+     plate (StIfLogical anno ss expr) |* stmt
+  uniplate (StForallStatement anno ss forallhead    stmt) =
+     plate (StForallStatement anno ss forallhead) |* stmt
+  uniplate (StWhere anno ss expr     stmt) =
+     plate (StWhere anno ss expr) |* stmt
+  uniplate x = plate x
+
+instance {-# OVERLAPS #-} Data a => Biplate (Statement a) (Statement a) where
+  biplate = plateSelf
+
+instance {-# OVERLAPS #-} Data a => Uniplate (Expression a) where
+  uniplate x@ExpValue{} = plate x
+  uniplate (ExpBinary anno ss binop     e1    e2) =
+     plate (ExpBinary anno ss binop) |* e1 |* e2
+  uniplate (ExpUnary anno ss binop     e1) =
+     plate (ExpUnary anno ss binop) |* e1
+  -- TODO can I ignore that Index has Expressions? hmm
+  uniplate (ExpSubscript anno ss     e    idxs) =
+     plate (ExpSubscript anno ss) |* e |- idxs
+  uniplate (ExpDataRef anno ss     e1    e2) =
+     plate (ExpDataRef anno ss) |* e1 |* e2
+  -- TODO
+  uniplate (ExpFunctionCall anno ss     e    args) =
+     plate (ExpFunctionCall anno ss) |* e |+ args
+  -- TODO how to treat AList like [Expression a]?
+  uniplate (ExpImpliedDo anno ss     es    dospec) =
+     plate (ExpImpliedDo anno ss) |+ es |+ dospec
+  uniplate (ExpInitialisation anno ss     es) =
+     plate (ExpInitialisation anno ss) |+ es
+  uniplate (ExpReturnSpec anno ss     e) =
+     plate (ExpReturnSpec anno ss) |* e
+
+instance {-# OVERLAPS #-} Data a => Biplate (Expression a) (Expression a) where
+  biplate = plateSelf

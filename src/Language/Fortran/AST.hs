@@ -129,6 +129,7 @@ import Language.Fortran.Util.SecondParameter
 import Language.Fortran.AST.AList
 
 import Data.Generics.Uniplate.Direct
+import Debug.Trace
 
 -- | The empty annotation.
 type A0 = ()
@@ -1090,14 +1091,14 @@ instance {-# OVERLAPS #-} Biplate (ProgramFile a) (ProgramFile a) where
   biplate = plateSelf
 
 instance {-# OVERLAPS #-} Data a => Uniplate (ProgramUnit a) where
-  uniplate (PUMain anno ss mName blk     mPUs) =
-     plate (PUMain anno ss mName blk) |+ mPUs
-  uniplate (PUModule anno ss name blk     mPUs) =
-     plate (PUModule anno ss name blk) |+ mPUs
-  uniplate (PUSubroutine anno pfxSfx ss name mArgs blk     mPUs) =
-     plate (PUSubroutine anno pfxSfx ss name mArgs blk) |+ mPUs
-  uniplate (PUFunction anno ss mTSpec pfxSfx name mArgs mRes blk     mPUs) =
-     plate (PUFunction anno ss mTSpec pfxSfx name mArgs mRes blk) |+ mPUs
+  uniplate (PUMain a ss mName blk     mPUs) =
+     plate (PUMain a ss mName blk) |+ mPUs
+  uniplate (PUModule a ss name blk     mPUs) =
+     plate (PUModule a ss name blk) |+ mPUs
+  uniplate (PUSubroutine a pfxSfx ss name mArgs blk     mPUs) =
+     plate (PUSubroutine a pfxSfx ss name mArgs blk) |+ mPUs
+  uniplate (PUFunction a ss mTSpec pfxSfx name mArgs mRes blk     mPUs) =
+     plate (PUFunction a ss mTSpec pfxSfx name mArgs mRes blk) |+ mPUs
   uniplate x@PUBlockData{} = plate x
   uniplate x@PUComment{}   = plate x
 
@@ -1106,61 +1107,103 @@ instance {-# OVERLAPS #-} Data a => Biplate (ProgramUnit a) (ProgramUnit a) wher
 
 instance {-# OVERLAPS #-} Data a => Uniplate (Block a) where
   uniplate x@BlStatement{} = plate x
-  uniplate (BlForall anno ss mLabel mName fahead      body    mEndLabel) =
-     plate (BlForall anno ss mLabel mName fahead) ||* body |- mEndLabel
-  uniplate (BlIf anno ss mLabel mName conds     bodys    mEndLabel) =
-     --plate (BlIf anno ss mLabel mName conds) |||* bodys |- mEndLabel
-     plate (BlIf anno ss mLabel mName conds) |+ bodys |- mEndLabel
-  uniplate (BlCase anno ss mLabel mName scrutinee ranges     bodys    mEndLabel) =
-     --plate (BlCase anno ss mLabel mName scrutinee ranges) |||* bodys |- mEndLabel
-     plate (BlCase anno ss mLabel mName scrutinee ranges) |+ bodys |- mEndLabel
+  uniplate (BlForall a ss mLabel mName fahead      body    mEndLabel) =
+     plate (BlForall a ss mLabel mName fahead) ||* body |- mEndLabel
+  uniplate (BlIf a ss mLabel mName conds     bodys    mEndLabel) =
+     --plate (BlIf a ss mLabel mName conds) |||* bodys |- mEndLabel
+     plate (BlIf a ss mLabel mName conds) |+ bodys |- mEndLabel
+  uniplate (BlCase a ss mLabel mName scrutinee ranges     bodys    mEndLabel) =
+     --plate (BlCase a ss mLabel mName scrutinee ranges) |||* bodys |- mEndLabel
+     plate (BlCase a ss mLabel mName scrutinee ranges) |+ bodys |- mEndLabel
   -- TODO particularly nasty: DoSpecification has a Stmt, which could be StInclude...
-  uniplate (BlDo anno ss mLabel mName mTLabel dospec      body    mEndLabel) =
-     plate (BlDo anno ss mLabel mName mTLabel dospec) ||* body |- mEndLabel
-  uniplate (BlDoWhile anno ss mLabel mName mTLabel cond      body    mEndLabel) =
-     plate (BlDoWhile anno ss mLabel mName mTLabel cond) ||* body |- mEndLabel
+  uniplate (BlDo a ss mLabel mName mTLabel dospec      body    mEndLabel) =
+     plate (BlDo a ss mLabel mName mTLabel dospec) ||* body |- mEndLabel
+  uniplate (BlDoWhile a ss mLabel mName mTLabel cond      body    mEndLabel) =
+     plate (BlDoWhile a ss mLabel mName mTLabel cond) ||* body |- mEndLabel
   -- TODO lying, we have a [PU] here urgh
-  uniplate (BlInterface anno ss mLabel x pus     body) =
-     plate (BlInterface anno ss mLabel x pus) ||* body
+  uniplate (BlInterface a ss mLabel x pus     body) =
+     plate (BlInterface a ss mLabel x pus) ||* body
   uniplate x@BlComment{} = plate x
 
 instance {-# OVERLAPS #-} Data a => Biplate (Block a) (Block a) where
-  biplate = plateSelf
+  biplate = trace "biplate block block" plateSelf
 
 instance {-# OVERLAPS #-} Data a => Uniplate (Statement a) where
   -- TODO ignoring StInclude which has [Block]
-  uniplate (StIfLogical anno ss expr     stmt) =
-     plate (StIfLogical anno ss expr) |* stmt
-  uniplate (StForallStatement anno ss forallhead    stmt) =
-     plate (StForallStatement anno ss forallhead) |* stmt
-  uniplate (StWhere anno ss expr     stmt) =
-     plate (StWhere anno ss expr) |* stmt
+  uniplate (StIfLogical a ss expr     stmt) =
+     plate (StIfLogical a ss expr) |* stmt
+  uniplate (StForallStatement a ss forallhead    stmt) =
+     plate (StForallStatement a ss forallhead) |* stmt
+  uniplate (StWhere a ss expr     stmt) =
+     plate (StWhere a ss expr) |* stmt
   uniplate x = plate x
 
 instance {-# OVERLAPS #-} Data a => Biplate (Statement a) (Statement a) where
-  biplate = plateSelf
+  biplate = trace "biplate statement statement" plateSelf
 
 instance {-# OVERLAPS #-} Data a => Uniplate (Expression a) where
   uniplate x@ExpValue{} = plate x
-  uniplate (ExpBinary anno ss binop     e1    e2) =
-     plate (ExpBinary anno ss binop) |* e1 |* e2
-  uniplate (ExpUnary anno ss binop     e1) =
-     plate (ExpUnary anno ss binop) |* e1
+  uniplate (ExpBinary a ss binop     e1    e2) =
+     plate (ExpBinary a ss binop) |* e1 |* e2
+  uniplate (ExpUnary a ss binop     e1) =
+     plate (ExpUnary a ss binop) |* e1
   -- TODO can I ignore that Index has Expressions? hmm
-  uniplate (ExpSubscript anno ss     e    idxs) =
-     plate (ExpSubscript anno ss) |* e |- idxs
-  uniplate (ExpDataRef anno ss     e1    e2) =
-     plate (ExpDataRef anno ss) |* e1 |* e2
+  uniplate (ExpSubscript a ss     e    idxs) =
+     plate (ExpSubscript a ss) |* e |- idxs
+  uniplate (ExpDataRef a ss     e1    e2) =
+     plate (ExpDataRef a ss) |* e1 |* e2
   -- TODO
-  uniplate (ExpFunctionCall anno ss     e    args) =
-     plate (ExpFunctionCall anno ss) |* e |+ args
+  uniplate (ExpFunctionCall a ss     e    args) =
+     plate (ExpFunctionCall a ss) |* e |+ args
   -- TODO how to treat AList like [Expression a]?
-  uniplate (ExpImpliedDo anno ss     es    dospec) =
-     plate (ExpImpliedDo anno ss) |+ es |+ dospec
-  uniplate (ExpInitialisation anno ss     es) =
-     plate (ExpInitialisation anno ss) |+ es
-  uniplate (ExpReturnSpec anno ss     e) =
-     plate (ExpReturnSpec anno ss) |* e
+  uniplate (ExpImpliedDo a ss     es    dospec) =
+     plate (ExpImpliedDo a ss) |+ es |+ dospec
+  uniplate (ExpInitialisation a ss     es) =
+     plate (ExpInitialisation a ss) |+ es
+  uniplate (ExpReturnSpec a ss     e) =
+     plate (ExpReturnSpec a ss) |* e
 
 instance {-# OVERLAPS #-} Data a => Biplate (Expression a) (Expression a) where
-  biplate = plateSelf
+  biplate = trace "biplate expr expr" plateSelf
+
+instance {-# OVERLAPS #-} Data a => Biplate (ProgramFile a) (Expression a) where
+  biplate (ProgramFile mi pus) = trace "biplate pf expr" $
+    plate (ProgramFile mi) ||+ pus
+
+instance {-# OVERLAPS #-} Data a => Biplate (ProgramUnit a) (Expression a) where
+  biplate (PUMain a ss mName     body    mSubprogs) =
+    plate (PUMain a ss mName) |+ body |+ mSubprogs
+  biplate (PUModule a ss name     body    mSubprogs) =
+    plate (PUModule a ss name) |+ body |+ mSubprogs
+  biplate (PUSubroutine a ss opts name     mArgs    body    mSubprogs) =
+    plate (PUSubroutine a ss opts name) |+ mArgs |+ body |+ mSubprogs
+  -- TODO lying: mRetTy = TypeSpec has Expression
+  biplate (PUFunction a ss mRetTy opts name     mArgs    mRes    body    mSubprogs) =
+    plate (PUFunction a ss mRetTy opts name) |+ mArgs |+ mRes |+ body |+ mSubprogs
+  biplate (PUBlockData a ss mName     body) =
+    plate (PUBlockData a ss mName) |+ body
+  biplate x@PUComment{} = plate x
+
+instance {-# OVERLAPS #-} Data a => Biplate (ProgramFile a) (ProgramUnit a) where
+  biplate (ProgramFile mi pus) = trace "biplate pf pu" $
+    plate (ProgramFile mi) ||* pus
+
+instance {-# OVERLAPS #-} Data a => Biplate (ProgramFile a) (Block a) where
+  biplate (ProgramFile mi pus) = trace "biplate pf pu" $
+    plate (ProgramFile mi) ||+ pus
+
+instance {-# OVERLAPS #-} Data a => Biplate (ProgramUnit a) (Block a) where
+  -- TODO: it's possible to get a Block from an Expr via DoSpec -> Statement ->
+  -- StInclude but I think it's unintended and unparseable
+  biplate (PUMain a ss mName      body    mSubprogs) =
+    plate (PUMain a ss mName) ||* body |+ mSubprogs
+  biplate (PUModule a ss name      body    mSubprogs) =
+    plate (PUModule a ss name) ||* body |+ mSubprogs
+  biplate (PUSubroutine a ss opts name mArgs      body    mSubprogs) =
+    plate (PUSubroutine a ss opts name mArgs) ||* body |+ mSubprogs
+  -- TODO lying: mRetTy = TypeSpec has Expression
+  biplate (PUFunction a ss mRetTy opts name mArgs mRes      body    mSubprogs) =
+    plate (PUFunction a ss mRetTy opts name mArgs mRes) ||* body |+ mSubprogs
+  biplate (PUBlockData a ss mName      body) =
+    plate (PUBlockData a ss mName) ||* body
+  biplate x@PUComment{} = plate x

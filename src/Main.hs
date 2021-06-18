@@ -54,6 +54,7 @@ programName = "fortran-src"
 
 main :: IO ()
 main = do
+  putStrLn "YO HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO??????????????"
   args <- getArgs
   (opts, parsedArgs) <- compileArgs args
   case (parsedArgs, action opts) of

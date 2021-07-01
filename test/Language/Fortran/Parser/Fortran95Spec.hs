@@ -29,6 +29,10 @@ sParser :: String -> Statement ()
 sParser sourceCode =
   evalParse statementParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
 
+blParser :: String -> Block ()
+blParser sourceCode =
+  evalParse blockParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
+
 fParser :: String -> ProgramUnit ()
 fParser sourceCode =
   evalParse functionParser $ initParseState (B.pack sourceCode) Fortran95 "<unknown>"
@@ -484,21 +488,17 @@ spec =
             sParser "endwhere" `shouldBe'` StEndWhere () u Nothing
 
     describe "If" $ do
-      it "parses if-then statement" $
-        sParser "if (.false.) then" `shouldBe'` StIfThen () u Nothing valFalse
+      let stPrint = StPrint () u starVal (Just $ fromList () [ ExpValue () u (ValString "foo")])
+      it "parser if block" $
+        let ifBlockSrc = unlines [ "if (.false.) then", "print *, 'foo'", "end if"]
+            falseLit = ExpValue () u (ValLogical ".false.")
+        in blParser ifBlockSrc `shouldBe'` BlIf () u Nothing Nothing [Just falseLit] [[BlStatement () u Nothing stPrint]] Nothing
 
-      it "parses if-then statement with construct name" $ do
-        let st = StIfThen () u (Just "my_if") valFalse
-        sParser "my_if: if (.false.) then" `shouldBe'` st
-
-      it "parses else statement" $
-        sParser "else" `shouldBe'` StElse () u Nothing
-
-      it "parses else-if statement" $
-        sParser "else if (.true.) then" `shouldBe'` StElsif () u Nothing valTrue
-
-      it "parses end if statement" $
-        sParser "end if" `shouldBe'` StEndif () u Nothing
+      it "parses named if block" $ do
+        let ifBlockSrc = unlines [ "mylabel : if (.true.) then", "print *, 'foo'", "end if mylabel"]
+            trueLit = ExpValue () u (ValLogical ".true.")
+            ifBlock = BlIf () u Nothing (Just "mylabel") [Just trueLit] [[BlStatement () u Nothing stPrint]] Nothing
+        blParser ifBlockSrc `shouldBe'` ifBlock
 
       it "parses logical if statement" $ do
         let assignment = StExpressionAssign () u (varGen "a") (varGen "b")
@@ -512,24 +512,44 @@ spec =
         sParser "if (x) 1, 2, 3" `shouldBe'` stIf
 
     describe "Case" $ do
-      it "parses select case statement" $ do
-        let st = StSelectCase () u Nothing (varGen "n")
-        sParser "select case (n)" `shouldBe'` st
-
-      it "parses select case statement with construct name" $ do
-        let st = StSelectCase () u (Just "case") (varGen "n")
-        sParser "case: select case (n)" `shouldBe'` st
-
-      it "parses case statement" $ do
-        let ranges = AList () u [ IxRange () u (Just $ intGen 42) Nothing Nothing ]
-        sParser "case (42:)" `shouldBe'` StCase () u Nothing (Just ranges)
-
-      it "parses case statement" $
-        sParser "case default" `shouldBe'` StCase () u Nothing Nothing
-
-      it "parses end select statement" $ do
-        let st = StEndcase () u (Just "name")
-        sParser "end select name" `shouldBe'` st
+      let printArgs str = Just $ AList () u [ExpValue () u $ ValString str]
+          printStmt = StPrint () u (ExpValue () u ValStar) . printArgs
+          printBlock = BlStatement () u Nothing . printStmt
+          intLit = ExpValue () u . ValInteger
+          ind2 = AList () u . pure $ IxSingle () u Nothing $ intLit "2"
+          ind3Plus = AList () u . pure $ IxRange () u (Just $ intLit "3") Nothing Nothing
+          conds = [Just ind2, Just ind3Plus, Nothing]
+      it "unlabelled case block" $ do
+        let src = unlines [ "select case (x)"
+                          , "case (2)"
+                          , "print *, 'foo'"
+                          , "case (3:)"
+                          , "print *, 'bar'"
+                          , "case default"
+                          , "print *, 'baz'"
+                          , "end select"
+                          ]
+            blocks = (fmap . fmap) printBlock [["foo"], ["bar"], ["baz"]]
+            block = BlCase () u Nothing Nothing (varGen "x") conds blocks Nothing
+        blParser src `shouldBe'` block
+      it "labelled case block" $ do
+        let src = unlines [ "10 mylabel: select case (x)"
+                          , "20 case (2)"
+                          , "30 print *, 'foo'"
+                          , "40 case (3:)"
+                          , "50 print *, 'bar'"
+                          , "60 case default"
+                          , "70 print *, 'baz'"
+                          , "80 end select mylabel"
+                          ]
+            blocks = (fmap . fmap)
+                     (\(label, arg) -> BlStatement () u (Just $ intLit label) $ printStmt arg)
+                     [[("30", "foo")], [("50", "bar")], [("70", "baz")]]
+            block = BlCase () u
+                           (Just $ intLit "10") (Just "mylabel") (varGen "x")
+                           conds blocks
+                           (Just $ intLit "80")
+        blParser src `shouldBe'` block
 
     describe "Do" $ do
       it "parses do statement with label" $ do

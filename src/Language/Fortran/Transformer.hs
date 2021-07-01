@@ -20,8 +20,6 @@ import Language.Fortran.Version (FortranVersion(..))
 
 data Transformation =
     GroupForall
-  | GroupIf
-  | GroupCase
   | GroupDo
   | GroupLabeledDo
   | DisambiguateFunction
@@ -31,8 +29,6 @@ data Transformation =
 transformationMapping :: Data a => Transformation -> Transform a ()
 transformationMapping = \case
   GroupForall           -> groupForall
-  GroupIf               -> groupIf
-  GroupCase             -> groupCase
   GroupDo               -> groupDo
   GroupLabeledDo        -> groupLabeledDo
   DisambiguateFunction  -> disambiguateFunction
@@ -56,9 +52,9 @@ defaultTransformations = \case
     , DisambiguateIntrinsic
     , DisambiguateFunction
     ]
-  Fortran77         -> GroupIf   : defaultTransformations Fortran66
+  Fortran77         -> defaultTransformations Fortran66
   Fortran77Legacy   -> GroupDo   : defaultTransformations Fortran77
-  Fortran77Extended -> GroupCase : defaultTransformations Fortran77Legacy
+  Fortran77Extended -> defaultTransformations Fortran77Legacy
   Fortran90   -> defaultTransformations Fortran77Extended
   Fortran95   -> defaultTransformations Fortran77Extended
   Fortran2003 -> defaultTransformations Fortran77Extended
